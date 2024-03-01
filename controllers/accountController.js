@@ -1,13 +1,46 @@
 import express from "express";
 const router = express.Router();
 import bcryptjs from "bcryptjs";
-import jsonwebtoken from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import Account from "../models/accountModel.js";
+import dotenv from "dotenv";
 
+dotenv.config();
 /**
  * @swagger
  * components:
  *  schemas:
+ *    UserLogin:
+ *    type: object
+ *    required:
+ *      - email
+ *      - password
+ *    properties:
+ *      email:
+ *        type: string
+ *        description: the user email address
+ *      password:
+ *        type: string
+ *        description: the user password
+ *    TokenResponse:
+ *      required:
+ *        - token
+ *      properties:
+ *        token:
+ *          type: string
+ *          descriptionL the login token
+ *    VerifyUserCode:
+ *      type: object
+ *      required:
+ *        - code
+ *        - email
+ *      properties:
+ *        email:
+ *          type: string
+ *          description: The user email address
+ *        code:
+ *          type: integer
+ *          description: The code to verify
  *    User:
  *      type: object
  *      required:
@@ -181,8 +214,167 @@ router.delete("/deleteAccount/:id", (req, res) => {
     });
 });
 
-router.post("/verify", (req, res) => {});
+/**
+ * @swagger
+ * /api/account/updateAccount/{id}:
+ *  put:
+ *    summary: update account details by id
+ *    tags: [Accounts]
+ *    parameters:
+ *      - in: path
+ *        name: id
+ *        schema:
+ *          type: integer
+ *        required: true
+ *        description: the user id
+ *    requestBody:
+ *      required: true
+ *      content:
+ *        application/json:
+ *          schema:
+ *            $ref: '#/components/schemas/User'
+ *    responses:
+ *      200:
+ *        description: the user account was deleted
+ *        content:
+ *          application/json:
+ *            schema:
+ *              $ref: '#/components/schemas/User'
+ *
+ */
+router.put("/updateAccount/:id", (req, res) => {
+  const userId = req.params.id;
+  const { firstName, lastName } = req.body;
+  Account.findByPk(userId)
+    .then(account => {
+      if (account) {
+        account.firstName = firstName;
+        account.lastName = lastName;
+        return account.save().then(results => {
+          return res.status(200).json({ message: results });
+        });
+      } else {
+        return res.status(401).json({ message: "User not found" });
+      }
+    })
+    .catch(error => {
+      return res.status(500).json({ message: error });
+    });
+});
 
-router.post("/login", (req, res) => {});
+/**
+ * @swagger
+ * /api/account/verify:
+ *  put:
+ *    summary: verification the user by code
+ *    tags: [Accounts]
+ *    requestBody:
+ *      required: true
+ *      content:
+ *        application/json:
+ *          schema:
+ *            $ref: '#/components/schemas/VerifyUserCode'
+ *    responses:
+ *      200:
+ *        description: the user is verified
+ *        content:
+ *          application/json:
+ *            schema:
+ *              $ref: '#/components/schemas/User'
+ *
+ */
+
+router.put("/verify", (req, res) => {
+  //request code + email / id
+  //find the user email
+  //chek if code match existing code
+  //update to true + save
+  //response
+
+  const { code, email } = req.body;
+  Account.findAll({ where: { email: email } })
+    .then(results => {
+      if (results.length > 0) {
+        const account = results[0];
+        if (parseInt(account.verificationCode) === parseInt(code)) {
+          account.isVerified = true;
+          return account.save().then(results => {
+            return res.status(200).json({ message: "the user is verified!!!" });
+          });
+        }
+      } else {
+        return res.status(401).json({ message: "email is not found" });
+      }
+    })
+    .catch(error => {
+      return res.status(500).json({ message: error });
+    });
+});
+
+/**
+ * @swagger
+ * /api/account/login:
+ *  post:
+ *    summary: Login
+ *    tags: [Accounts]
+ *    requestBody:
+ *      required: true
+ *      content:
+ *        application/json
+ *        schema:
+ *          $ref: '#/components/schemas/UserLogin'
+ *    response:
+ *      200:
+ *        description: the login credential token
+ *        content:
+ *          application/json
+ *            schema:
+ *              $ref: '#/components/schemas/TokenResponse'
+ */
+router.post("/login", (req, res) => {
+  // request > email + password
+  const { email, password } = req.body;
+  // find the user account by email
+  Account.findAll({ where: { email: email } })
+    .then(async results => {
+      if (results.length > 0) {
+        const account = results[0];
+        // check if the user is verify
+        if (account.isVerified) {
+          // check for password
+          const isMatch = await bcryptjs.compare(password, account.password);
+          if (isMatch) {
+            const dataToToken = {
+              id: account.id,
+              firstName: account.firstName,
+              lastName: account.lastName,
+              email: account.email,
+            };
+            // generate token
+            const token = await jwt.sign(dataToToken, process.env.TOKEN_KEY);
+            // response + token
+            return res.status(200).json({
+              message: token,
+            });
+          } else {
+            return res.status(401).json({
+              message: "the password is not match",
+            });
+          }
+        } else {
+          return res.status(401).json({
+            message: "user is not verify",
+          });
+        }
+      } else {
+        return res.status(401).json({
+          message: "user is not find",
+        });
+      }
+    })
+    .catch(error => {
+      return res.status(500).json({ message: error });
+    });
+});
 
 export default router;
