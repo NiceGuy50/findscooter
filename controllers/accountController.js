@@ -4,72 +4,73 @@ import bcryptjs from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Account from "../models/accountModel.js";
 import dotenv from "dotenv";
-
 dotenv.config();
+
 /**
  * @swagger
  * components:
  *  schemas:
- *    UserLogin:
- *    type: object
- *    required:
- *      - email
- *      - password
- *    properties:
- *      email:
- *        type: string
- *        description: the user email address
- *      password:
- *        type: string
- *        description: the user password
- *    TokenResponse:
- *      required:
- *        - token
- *      properties:
- *        token:
- *          type: string
- *          descriptionL the login token
- *    VerifyUserCode:
- *      type: object
- *      required:
- *        - code
- *        - email
- *      properties:
- *        email:
- *          type: string
- *          description: The user email address
- *        code:
- *          type: integer
- *          description: The code to verify
- *    User:
- *      type: object
- *      required:
- *        - firstName
- *        - lastName
- *        - email
- *        - password
- *      properties:
- *        id:
- *          type: integer
- *          description: the auto-generated id of the user
- *        firstName:
- *          type: string
- *          description: the first name of the user
- *        lastName:
- *          type: string
- *          description: the last name of the user
- *        email:
- *          type: string
- *          description: the email of the user
- *        password:
- *          type: string
- *          description: the user password
- *        verificationCode:
- *          type: integer
- *          description: Generated code for account validation
- *        isVerified:
- *          type: boolean
- *          description: Get default value of false until user validation
+ *      UserLogin:
+ *        type: object
+ *        required:
+ *          - email
+ *          - password
+ *        properties:
+ *          email:
+ *            type: string
+ *            description: The user email address
+ *          password:
+ *            type: string
+ *            description: The user password
+ *      TokenResponse:
+ *        type: object
+ *        required:
+ *          - token
+ *        properties:
+ *          token:
+ *            type: string
+ *            description: The login token
+ *      VerifyUserCode:
+ *        type: object
+ *        required:
+ *          - code
+ *          - email
+ *        properties:
+ *          email:
+ *            type: string
+ *            description: The user email address
+ *          code:
+ *            type: integer
+ *            description: The code to verify
+ *      User:
+ *        type: object
+ *        required:
+ *          - firstName
+ *          - lastName
+ *          - email
+ *          - password
+ *        properties:
+ *          id:
+ *            type: integer
+ *            description: The auto-generated id of the user
+ *          firstName:
+ *            type: string
+ *            description: The first name of the user
+ *          lastName:
+ *            type: string
+ *            description: The last name of the user
+ *          email:
+ *            type: string
+ *            description: The user email address
+ *          password:
+ *            type: string
+ *            description: The user crypt password
+ *          verificationCode:
+ *            type: integer
+ *            description: Generated code for account validation
+ *          isVerified:
+ *            type: boolean
+ *            description: Get default value of false untill user validation
  *      example:
  *       id: 1
  *       firstName: Ben
@@ -301,6 +302,10 @@ router.put("/verify", (req, res) => {
           return account.save().then(results => {
             return res.status(200).json({ message: "the user is verified!!!" });
           });
+        } else {
+          return res
+            .status(401)
+            .json({ message: "the verification code is not match!" });
         }
       } else {
         return res.status(401).json({ message: "email is not found" });
@@ -320,16 +325,17 @@ router.put("/verify", (req, res) => {
  *    requestBody:
  *      required: true
  *      content:
- *        application/json
- *        schema:
- *          $ref: '#/components/schemas/UserLogin'
- *    response:
+ *        application/json:
+ *          schema:
+ *            $ref: '#/components/schemas/UserLogin'
+ *    responses:
  *      200:
- *        description: the login credential token
+ *        description: The login credential token
  *        content:
- *          application/json
+ *          application/json:
  *            schema:
  *              $ref: '#/components/schemas/TokenResponse'
+ *
  */
 router.post("/login", (req, res) => {
   // request > email + password
